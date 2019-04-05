@@ -3,102 +3,49 @@
 % Based on code by Lars Gruene, Juergen Pannek 2011
 
 
-function [x,u, y] = NMPC(simTime, inputs,states, outputs, np, nc, Q, R, Ts, model_type)
+function [t,x,u] = NMPC(yd, nu,nx, ny, np, nc, Q, R, Ts, u0, x0, t0, model_type, options, ...
+    l_constraints)
 
-    u0 = zeros(inputs, nc);
     t = [];
     x = [];
     u = [];
-    n = states;
-    % Check for prediction model in path
-    pred_flag = predModel();
-    itr = simTime/Ts ;  
-    if pred_flag ~= 0 
-            %   Obtain new initial value
-            [t0, x0] = measureInitialValue ( tmeasure, xmeasure );
-            %   Solve the optimal control problem
-            t_Start = tic;
-            [u_new, V_current, exitflag, output] = solveOptimalControlProblem ...
-                (stage_cost, terminal_cost,u, np, nc, Ts, x0,u0, model_type);
-            t_Elapsed = toc( t_Start );
-            %   Store closed loop data
-            t = [ t tmeasure ];
-            x = [ x xmeasure ];
-            u = [ u u_new(:,1)];
-            %   Prepare restart
-            u0 = shiftHorizon(u_new);
-            %   Apply control to process
-            [tmeasure, xmeasure,ymeasure] = applyControl(system, T, t0, x0, u_new, ...
-                atol_ode_real, rtol_ode_real, type);
-            mpciter = mpciter+1;
+    t_Start = tic;
+    [u_star, V_current, exitflag, output] = solveOptimalControlProblem ...
+            (cost_function, np, nc, Ts, x0,u0, model_type, options,l_constraints);
+    t_Elapsed = toc( t_Start );
+    %   Store closed loop data
+    t = [ t t0 ];
+    x = [ x x0 ];
+    u = [ u u_star];
+end
+
+function l = stage_cost(yd,y)
+    n = length(yd);
+    lk = 0;
+    for i=1:n
+       lk = lk+y(i)^2; 
     end
- end
-    
-
-
-% Check stage cost function
-
-function cost_flag = costFunc()
-if exists('stage_cost.m') > 0 
-     disp('STATUS: stage cost obtained');
-     cost_flag = 0;
-else
-     error('No stage cost in current path/directory, using default cost');
-     cost_flag = 1;
-end
 end
 
-% Check for prediction model
-
-function pred_flag = predModel()
-if exist('Prediction_model') > 0
-     disp('STATUS: Prediction model obtained');
-     pred_flag = 0;
-else
-     error('No prediction model in current path/directory');
-     pred_flag = 1;
+function lN = terminal_cost(x0)
+ % TODO Define terminal cost (should i let the user define it ?)
 end
-end
-
-% update states measurements
-
-function [t0, x0] = measureInitialValue ( tmeasure, xmeasure )
-    t0 = tmeasure;
-    x0 = xmeasure;
-end
-
-
-
-function [tapplied, xapplied] = applyControl(system, T, t0, x0, u, ...
-                                atol_ode_real, rtol_ode_real, type)
-    xapplied = dynamic(system, T, t0, x0, u(:,1), ...
-                       atol_ode_real, rtol_ode_real, type);
-    tapplied = t0+T;
-end
-
-
-
-function u0 = shiftHorizon(u)
-    u0 = [u(:,2:size(u,2)) u(:,size(u,2))];
-end
-
-
 
 function [u, V, exitflag, output] = solveOptimalControlProblem ...
-    (stage_cost, terminal_cost,u, np, nc, Ts, x0,u0, model_type)
-    x = zeros(N+1, length(x0));
+    (cost_function, np, nc, Ts, x0,u0, model_type, options,l_constraints)
+    x = zeros(length(x0), np+1);
     x = computeOpenloopPrediction(np, nc, Ts, t0, x0,u0, model_type);
     
     % Set control and linear bounds
-    A = [];
-    b = [];
-    Aeq = [];
-    beq = [];
-    lb = [];
-    ub = [];
-    for k=1:N
-        [Anew, bnew, Aeqnew, beqnew, lbnew, ubnew] = ...
-               linearconstraints(t0+k*T,x(k,:),u0(:,k));
+    A       = [];
+    b       = [];
+    Aeq     = [];
+    beq     = [];
+    lb      = [];
+    ub      = [];
+    
+    for k=1:np
+        [Anew,bnew,Aeqnew,beqnew,lbnew,ubnew] = l_constraints()
         A = blkdiag(A,Anew);
         b = [b, bnew];
         Aeq = blkdiag(Aeq,Aeqnew);
@@ -106,7 +53,7 @@ function [u, V, exitflag, output] = solveOptimalControlProblem ...
         lb = [lb, lbnew];
         ub = [ub, ubnew];
     end
-
+    
     % Solve optimization problem
     [u, V, exitflag, output] = fmincon(@(u) costfunction(stage_cost, ...
         terminal_cost,u, np, nc, Ts, x0, model_type), u0, A, b, Aeq, beq, lb, ...
@@ -115,7 +62,7 @@ end
 
 
 
-function cost = costfunction(stage_cost, terminal_cost,u, np, nc, Ts, x0, model_type)
+function cost = costfunction(u, np, nc, Ts, x0, model_type, stage_cost, terminal_cost)
     cost = 0;
     % check for defined cost function
     cost_flag = costFunc();
@@ -125,11 +72,9 @@ function cost = costfunction(stage_cost, terminal_cost,u, np, nc, Ts, x0, model_
         for k=1:np
             cost = cost+stage_cost(t0+k*Ts, x(:,k), u(:, k));
         end
-        cost = cost+terminalcosts(t0+(np+1)*T, x(:,np+1));
+        cost = cost+terminal_cost(t0+(np+1)*T, x(:,np+1));
     end
 end
-
-
 
 
 function x = computeOpenloopPrediction(np, nc, Ts, t0, x0,u0, model_type)
@@ -145,3 +90,11 @@ function x = computeOpenloopPrediction(np, nc, Ts, t0, x0,u0, model_type)
         error('Provide a DT model, or an odefun handle');
     end
 end
+
+function [c, ceq] = nlconstraints(t,x,u)
+% ToDo add dependence on x at time t
+
+
+end
+
+
