@@ -1,4 +1,7 @@
 function cost = costfunction(u0, np, ny, Ts, x0, model_type,costFunc,yd,t0)
+%Function computing the cost function over np steps
+% Author: Mohamed Elobaid DIAG Sapienza 2019
+
     cost = 0;
     % check for defined cost function
     cost_flag = costFunc();

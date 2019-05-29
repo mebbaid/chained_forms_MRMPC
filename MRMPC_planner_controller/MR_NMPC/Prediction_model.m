@@ -1,5 +1,6 @@
 function [z,y] = Prediction_model(x0,u0,Ts,t0)
-% Prediction model of the discrete time dynamics
+%Function sample of the dynamical model of the system
+% Author: Mohamed Elobaid DIAG Sapienza 2019
 
 z       = zeros(3,1);
 z(1)    = x0(1)+Ts*u0(1);

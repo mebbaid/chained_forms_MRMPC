@@ -1,4 +1,6 @@
 function [x,y] = OpenloopPrediction(np, Ts, x0,u0, model_type,ny,t0)
+%Function computing the states evolution over np steps
+% Author: Mohamed Elobaid DIAG Sapienza 2019
     % Should I initialize x ?
     x = zeros(length(x0),np);
     y = zeros(ny,np);

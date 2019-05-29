@@ -1,4 +1,4 @@
-%% init for testing
+% init for testing
 
 clc 
 clear all
@@ -18,9 +18,10 @@ nu = 2;
 
 yd = ones(1,np);
 x0 = [0;0;0];
-u0 = ones(2,1); %% initial guess
+u0 = 0.7*ones(2,np); % initial guess
 
-%cost = costfunction(u0, np, ny, Ts, x0, model,costFunc)
+
+
 [ustar, Vstar, exitflag, output] = solveOCP( np, ny, Ts, x0,u0, model, options,costFunc,yd,t0)
 
 
