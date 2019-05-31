@@ -1,7 +1,7 @@
-function [ustar, Vstar, exitflag, output] = solveOCP ...
+function [u, Vstar, exitflag, output] = solveOCP ...
     (np, ny, Ts, x0,u0, model_type, options,costFunc,yd,t0)
-    x = zeros(length(x0), np);
-    x = OpenloopPrediction(np, Ts, x0,u0, model_type,ny,t0);
+%     x = zeros(length(x0), np);
+%     x = OpenloopPrediction(np, Ts, x0,u0, model_type,ny,t0);
     
     % Set control and linear bounds
     A       = [];
@@ -24,8 +24,8 @@ function [ustar, Vstar, exitflag, output] = solveOCP ...
 
 
  %---------- Solve optimization problem
- 
-[ustar, Vstar, exitflag, output] = fmincon(@(u) costfunction(u, np, ny, Ts, x0, model_type,costFunc,yd,t0), u0, A, b, Aeq, beq, lb, ...
+ Obj_index = @(u) costfunction(u, np, ny, Ts, x0, model_type,costFunc,yd,t0);
+[u, Vstar, exitflag, output] = fmincon(Obj_index, u0, A, b, Aeq, beq, lb, ...
         ub , [],  options);
 end
 
